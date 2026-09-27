@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VoiceBot Live</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a0f;--bg2:#111118;--bg3:#17171f;--bg4:#1e1e28;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
+  --text:#e8e8f0;--text2:#8888a8;--text3:#4a4a6a;
+  --accent:#7c6fff;--accent2:#a594ff;
+  --green:#3dffa0;--green-dim:rgba(61,255,160,0.1);
+  --red:#ff5577;--red-dim:rgba(255,85,119,0.1);
+  --yellow:#ffd060;--yellow-dim:rgba(255,208,96,0.1);
+  --blue:#60c8ff;--blue-dim:rgba(96,200,255,0.1);
+  --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.5;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+.hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--border);background:var(--bg2);flex-shrink:0;gap:12px}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-icon{width:30px;height:30px;border-radius:8px;background:var(--accent);display:flex;align-items:center;justify-content:center}
+.logo-icon svg{width:16px;height:16px;fill:#fff}
+.logo-name{font-size:14px;font-weight:600;letter-spacing:-.02em}
+.logo-sub{font-size:10px;color:var(--text2);font-family:var(--mono)}
+.hdr-mid{display:flex;align-items:center;gap:10px;flex:1;justify-content:center}
+.hdr-right{display:flex;align-items:center;gap:12px}
+.elapsed{font-family:var(--mono);font-size:13px;color:var(--text2);min-width:55px}
+.live-pill{display:flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:10px;font-family:var(--mono);font-weight:500;letter-spacing:.06em;border:1px solid var(--border);color:var(--text3);background:rgba(255,255,255,.03);transition:all .3s}
+.live-pill.ringing{background:var(--yellow-dim);color:var(--yellow);border-color:rgba(255,208,96,.25)}
+.live-pill.active{background:var(--green-dim);color:var(--green);border-color:rgba(61,255,160,.25)}
+.live-pill.ended{background:var(--red-dim);color:var(--red);border-color:rgba(255,85,119,.25)}
+.live-dot{width:5px;height:5px;border-radius:50%;background:currentColor}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.75)}}
+.live-pill.active .live-dot,.live-pill.ringing .live-dot{animation:pulse 1.4s infinite}
+.layout{display:grid;grid-template-columns:280px 1fr 280px;flex:1;overflow:hidden}
+.panel{display:flex;flex-direction:column;overflow:hidden}
+.panel-left{border-right:1px solid var(--border);background:var(--bg2)}
+.panel-right{border-left:1px solid var(--border);background:var(--bg2)}
+.panel-scroll{overflow-y:auto;flex:1;padding:16px}
+.panel-scroll::-webkit-scrollbar{width:3px}
+.panel-scroll::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.sec{font-size:10px;font-family:var(--mono);font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.sec::after{content:'';flex:1;height:1px;background:var(--border)}
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px}
+.info-row:last-child{border-bottom:none}
+.ik{color:var(--text2);font-family:var(--mono)}
+.iv{color:var(--text);font-weight:500;text-align:right;max-width:160px;word-break:break-all}
+.iv.mono{font-family:var(--mono);font-size:10px}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:16px}
+.sc{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:11px}
+.sc-lbl{font-size:10px;font-family:var(--mono);color:var(--text2);margin-bottom:5px}
+.sc-val{font-size:20px;font-weight:600;font-family:var(--mono);color:var(--text)}
+.sc.c-accent .sc-val{color:var(--accent2)}
+.sc.c-green .sc-val{color:var(--green)}
+.sc.c-blue .sc-val{color:var(--blue)}
+.sent-box{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:16px}
+.sent-num{font-size:22px;font-weight:600;font-family:var(--mono);text-align:center;color:var(--accent2);transition:color .4s}
+.sent-track{height:5px;background:var(--bg);border-radius:3px;margin:8px 0 5px;overflow:hidden}
+.sent-fill{height:100%;border-radius:3px;width:50%;background:var(--accent);transition:width .5s cubic-bezier(.34,1.56,.64,1),background .4s}
+.sent-labels{display:flex;justify-content:space-between;font-size:10px;font-family:var(--mono);color:var(--text3)}
+.badge-row{display:flex;gap:6px;flex-wrap:wrap}
+.badge{padding:3px 9px;border-radius:6px;font-size:11px;font-family:var(--mono);font-weight:500;border:1px solid transparent}
+.b-intent{background:var(--blue-dim);color:var(--blue);border-color:rgba(96,200,255,.2)}
+.b-emotion{background:var(--yellow-dim);color:var(--yellow);border-color:rgba(255,208,96,.2)}
+.b-pos{background:var(--green-dim);color:var(--green);border-color:rgba(61,255,160,.2)}
+.b-neg{background:var(--red-dim);color:var(--red);border-color:rgba(255,85,119,.2)}
+.b-exit{background:var(--red-dim);color:var(--red);border-color:rgba(255,85,119,.3)}
+.conf-box{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:16px}
+.conf-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.conf-lbl{font-size:10px;font-family:var(--mono);color:var(--text2);flex:1}
+.conf-val-txt{font-size:11px;font-family:var(--mono);color:var(--text)}
+.conf-bar{height:4px;background:var(--bg);border-radius:2px;overflow:hidden}
+.conf-fill{height:100%;border-radius:2px;background:var(--green);transition:width .4s}
+.call-form{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.cf-label{font-size:10px;font-family:var(--mono);color:var(--text2);margin-bottom:3px;display:block;letter-spacing:.05em}
+.cf-input{width:100%;background:var(--bg4);border:1px solid var(--border2);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:12px;padding:8px 10px;outline:none;transition:border-color .2s;resize:none}
+.cf-input:focus{border-color:var(--accent)}
+.cf-input::placeholder{color:var(--text3)}
+.btn-call{width:100%;padding:10px;border-radius:8px;border:none;cursor:pointer;font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.05em;transition:all .2s}
+.btn-call.go{background:var(--green);color:#0a1a10}
+.btn-call.go:hover{filter:brightness(1.1)}
+.btn-call.go:active{transform:scale(.98)}
+.btn-call.stop{background:var(--red-dim);color:var(--red);border:1px solid rgba(255,85,119,.3)}
+.btn-call.stop:hover{background:rgba(255,85,119,.2)}
+.btn-call:disabled{opacity:.4;cursor:not-allowed}
+.cf-error{font-size:11px;font-family:var(--mono);color:var(--red);padding:6px 8px;background:var(--red-dim);border-radius:6px;border:1px solid rgba(255,85,119,.2);display:none}
+.cf-error.show{display:block}
+.webhook-note{font-size:10px;color:var(--text3);font-family:var(--mono);line-height:1.5}
+.panel-center{background:var(--bg);display:flex;flex-direction:column;overflow:hidden}
+.call-bar{padding:10px 18px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;font-size:12px;font-family:var(--mono);flex-shrink:0}
+.st-dot{width:7px;height:7px;border-radius:50%;background:var(--text3);transition:background .3s}
+.st-dot.active{background:var(--green);animation:pulse 1.5s infinite}
+.st-dot.ringing{background:var(--yellow);animation:pulse .8s infinite}
+.st-dot.ended{background:var(--red)}
+.st-txt{color:var(--text2)}
+.st-txt span{color:var(--text);font-weight:500}
+.wave{display:flex;align-items:center;gap:2px;height:18px;margin-left:auto}
+.wb{width:3px;background:var(--accent);border-radius:2px;animation:wv 1.2s ease-in-out infinite;opacity:.3}
+.wb:nth-child(1){animation-delay:0s;height:30%}.wb:nth-child(2){animation-delay:.1s;height:70%}
+.wb:nth-child(3){animation-delay:.2s;height:100%}.wb:nth-child(4){animation-delay:.3s;height:60%}
+.wb:nth-child(5){animation-delay:.4s;height:40%}.wb:nth-child(6){animation-delay:.5s;height:80%}
+.wb:nth-child(7){animation-delay:.6s;height:50%}
+@keyframes wv{0%,100%{transform:scaleY(.3);opacity:.2}50%{transform:scaleY(1);opacity:1}}
+.wave.off .wb{animation:none;transform:scaleY(.25);opacity:.12}
+.conv{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:10px;scroll-behavior:smooth}
+.conv::-webkit-scrollbar{width:3px}
+.conv::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--text3);font-family:var(--mono);font-size:12px;text-align:center}
+.empty-icon{width:44px;height:44px;border-radius:12px;background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center}
+@keyframes fadein{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+.mw{display:flex;gap:9px;align-items:flex-start;animation:fadein .25s ease}
+.mw.bot{flex-direction:row-reverse}
+.av{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0;font-family:var(--mono)}
+.av.uav{background:rgba(96,200,255,.12);color:var(--blue)}
+.av.bav{background:rgba(124,111,255,.12);color:var(--accent2)}
+.mb{max-width:72%;padding:9px 13px;border-radius:12px;font-size:13px;line-height:1.5;border:1px solid var(--border)}
+.mw.user .mb{background:var(--bg3);border-radius:12px 12px 12px 4px}
+.mw.bot  .mb{background:rgba(124,111,255,.07);border-color:rgba(124,111,255,.14);border-radius:12px 12px 4px 12px}
+.mm{font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:3px;display:flex;gap:5px}
+.mw.bot .mm{flex-direction:row-reverse}
+.itag{padding:1px 5px;border-radius:4px;font-size:9px;background:var(--blue-dim);color:var(--blue)}
+.sys-ev{display:flex;align-items:center;gap:7px;padding:5px 11px;background:var(--bg3);border-radius:7px;border:1px solid var(--border);font-size:11px;font-family:var(--mono);color:var(--text2);animation:fadein .25s}
+.sys-dot{width:4px;height:4px;border-radius:50%;background:var(--accent)}
+.log{display:flex;flex-direction:column;gap:4px}
+.le{display:flex;gap:7px;align-items:flex-start;font-size:11px;padding:6px 8px;border-radius:6px;background:var(--bg3);border:1px solid var(--border);animation:fadein .2s}
+.lt{width:4px;height:4px;border-radius:50%;margin-top:5px;flex-shrink:0}
+.lt.info{background:var(--blue)}.lt.success{background:var(--green)}
+.lt.warn{background:var(--yellow)}.lt.error{background:var(--red)}
+.ltime{font-family:var(--mono);color:var(--text3);flex-shrink:0;font-size:10px;margin-top:1px}
+.lmsg{color:var(--text2);line-height:1.4}
+.lmsg .hl{color:var(--text);font-weight:500}
+.conn{position:fixed;bottom:14px;right:14px;padding:5px 11px;border-radius:20px;font-size:10px;font-family:var(--mono);background:var(--bg2);border:1px solid var(--border);color:var(--text2);z-index:999;transition:all .3s}
+.conn.ok{color:var(--green);border-color:rgba(61,255,160,.25)}
+.hdr-wave{display:flex;align-items:center;gap:2px;height:16px}
+.hdr-wb{width:2px;background:var(--accent);border-radius:1px;animation:wv 1.2s ease-in-out infinite;opacity:.25}
+.hdr-wb:nth-child(1){animation-delay:0s;height:30%}.hdr-wb:nth-child(2){animation-delay:.15s;height:80%}
+.hdr-wb:nth-child(3){animation-delay:.3s;height:100%}.hdr-wb:nth-child(4){animation-delay:.45s;height:55%}
+.hdr-wb:nth-child(5){animation-delay:.6s;height:35%}
+.hdr-wave.off .hdr-wb{animation:none;transform:scaleY(.2);opacity:.1}
+@media(max-width:900px){.layout{grid-template-columns:1fr}.panel-left,.panel-right{display:none}}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+    </div>
+    <div>
+      <div class="logo-name">VoiceBot Monitor</div>
+      <div class="logo-sub">real-time dashboard</div>
+    </div>
+  </div>
+  <div class="hdr-mid">
+    <div class="hdr-wave off" id="hdrWave">
+      <div class="hdr-wb"></div><div class="hdr-wb"></div><div class="hdr-wb"></div>
+      <div class="hdr-wb"></div><div class="hdr-wb"></div>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <div class="elapsed" id="elapsed">00:00</div>
+    <div class="live-pill" id="livePill"><div class="live-dot"></div><span id="liveText">IDLE</span></div>
+  </div>
+</div>
+
+<div class="layout">
+
+  <div class="panel panel-left">
+    <div class="panel-scroll" style="display:flex;flex-direction:column;gap:16px">
+
+      <div>
+        <div class="sec">call info</div>
+        <div class="info-row"><span class="ik">number</span><span class="iv mono" id="iNumber">—</span></div>
+        <div class="info-row"><span class="ik">name</span><span class="iv" id="iName">Unknown</span></div>
+        <div class="info-row"><span class="ik">status</span><span class="iv" id="iStatus">Idle</span></div>
+        <div class="info-row"><span class="ik">sid</span><span class="iv mono" id="iSid" style="font-size:10px">—</span></div>
+      </div>
+
+      <div>
+        <div class="sec">live metrics</div>
+        <div class="stat-grid">
+          <div class="sc"><div class="sc-lbl">EXCHANGES</div><div class="sc-val" id="sExchanges">0</div></div>
+          <div class="sc c-accent"><div class="sc-lbl">SILENCES</div><div class="sc-val" id="sSilences">0</div></div>
+          <div class="sc c-green"><div class="sc-lbl">DURATION</div><div class="sc-val" id="sDuration">0s</div></div>
+          <div class="sc c-blue"><div class="sc-lbl">RESPONSES</div><div class="sc-val" id="sResponses">0</div></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="sec">sentiment</div>
+        <div class="sent-box">
+          <div class="sent-num" id="sentNum">0</div>
+          <div class="sent-track"><div class="sent-fill" id="sentBar"></div></div>
+          <div class="sent-labels"><span>-10</span><span>neutral</span><span>+10</span></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="sec">current state</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div>
+            <div style="font-size:10px;font-family:var(--mono);color:var(--text3);margin-bottom:4px">INTENT</div>
+            <div class="badge-row" id="intentBadge"><span class="badge b-intent">neutral</span></div>
+          </div>
+          <div>
+            <div style="font-size:10px;font-family:var(--mono);color:var(--text3);margin-bottom:4px">EMOTION</div>
+            <div class="badge-row" id="emotionBadge"><span class="badge b-emotion">neutral</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="sec">speech confidence</div>
+        <div class="conf-box">
+          <div class="conf-row"><span class="conf-lbl">Recognition accuracy</span><span class="conf-val-txt" id="confTxt">—</span></div>
+          <div class="conf-bar"><div class="conf-fill" id="confFill" style="width:0%"></div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="panel panel-center">
+    <div class="call-bar">
+      <div class="st-dot" id="stDot"></div>
+      <div class="st-txt">Status: <span id="stTxt">Waiting for call...</span></div>
+      <div class="wave off" id="wave">
+        <div class="wb"></div><div class="wb"></div><div class="wb"></div>
+        <div class="wb"></div><div class="wb"></div><div class="wb"></div><div class="wb"></div>
+      </div>
+    </div>
+    <div class="conv" id="conv">
+      <div class="empty" id="empty">
+        <div class="empty-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.86 9.86 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+          </svg>
+        </div>
+        <div>No active call</div>
+        <div style="color:var(--text3);font-size:10px">Use the trigger panel to start a call</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel panel-right">
+    <div class="panel-scroll" style="display:flex;flex-direction:column;gap:16px">
+
+      <div>
+        <div class="sec">call trigger</div>
+        <div class="call-form" id="callForm">
+          <div>
+            <label class="cf-label">PHONE NUMBER</label>
+            <input class="cf-input" id="cfNumber" placeholder="+911234567890" />
+          </div>
+          <div>
+            <label class="cf-label">WEBHOOK BASE URL</label>
+            <input class="cf-input" id="cfWebhook" placeholder="https://your-tunnel.trycloudflare.com" />
+            <div class="webhook-note" style="margin-top:4px">Your public ngrok / cloudflare tunnel URL</div>
+          </div>
+          <div>
+            <label class="cf-label">OPENING MESSAGE</label>
+            <textarea class="cf-input" id="cfMessage" rows="2" placeholder="Hi! I'm calling about..."></textarea>
+          </div>
+          <div>
+            <label class="cf-label">SYSTEM PROMPT</label>
+            <textarea class="cf-input" id="cfPrompt" rows="3" placeholder="You are a lead generation assistant..."></textarea>
+          </div>
+          <div class="cf-error" id="cfError"></div>
+          <button class="btn-call go" id="btnCall" onclick="triggerCall()">INITIATE CALL</button>
+          <button class="btn-call stop" id="btnHangup" onclick="hangupCall()" style="display:none">HANG UP</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="sec">event log</div>
+        <div class="log" id="log">
+          <div class="le">
+            <div class="lt info"></div>
+            <span class="ltime" id="initTime">--:--:--</span>
+            <span class="lmsg">Dashboard <span class="hl">initialized</span></span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<div class="conn" id="connStatus">connecting...</div>
+
+<script>
+const conv    = document.getElementById('conv');
+const empty   = document.getElementById('empty');
+const log     = document.getElementById('log');
+const livePill= document.getElementById('livePill');
+const liveText= document.getElementById('liveText');
+const stDot   = document.getElementById('stDot');
+const stTxt   = document.getElementById('stTxt');
+const wave    = document.getElementById('wave');
+const hdrWave = document.getElementById('hdrWave');
+const conn    = document.getElementById('connStatus');
+const btnCall = document.getElementById('btnCall');
+const btnHangup=document.getElementById('btnHangup');
+
+document.getElementById('initTime').textContent = now();
+
+let timer = null;
+let callActive = false;
+
+function now(){ return new Date().toLocaleTimeString('en-GB',{hour12:false}); }
+function fmtSecs(s){ return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); }
+
+function startTimer(){
+  const t0 = Date.now();
+  timer = setInterval(()=>{
+    const s = Math.floor((Date.now()-t0)/1000);
+    document.getElementById('elapsed').textContent = fmtSecs(s);
+    document.getElementById('sDuration').textContent = s+'s';
+  },1000);
+}
+function stopTimer(){ clearInterval(timer); }
+
+function setLiveState(s){
+  livePill.className = 'live-pill';
+  stDot.className = 'st-dot';
+  wave.classList.add('off');
+  hdrWave.classList.add('off');
+  if(s==='active'){
+    livePill.classList.add('active'); liveText.textContent='LIVE';
+    stDot.classList.add('active');
+    wave.classList.remove('off'); hdrWave.classList.remove('off');
+  } else if(s==='ringing'){
+    livePill.classList.add('ringing'); liveText.textContent='RINGING';
+    stDot.classList.add('ringing');
+  } else if(s==='ended'){
+    livePill.classList.add('ended'); liveText.textContent='ENDED';
+    stDot.classList.add('ended');
+  } else {
+    liveText.textContent='IDLE';
+  }
+}
+
+function addLog(msg, type='info'){
+  const e = document.createElement('div'); e.className='le';
+  e.innerHTML=`<div class="lt ${type}"></div><span class="ltime">${now()}</span><span class="lmsg">${msg}</span>`;
+  log.insertBefore(e, log.firstChild);
+  while(log.children.length>60) log.removeChild(log.lastChild);
+}
+
+function removeEmpty(){
+  if(empty && empty.parentNode===conv) conv.removeChild(empty);
+}
+
+function addMsg(role, text, intent, conf){
+  removeEmpty();
+  const w = document.createElement('div'); w.className=`mw ${role}`;
+  const isBot = role==='bot';
+  const avCls = isBot?'bav':'uav';
+  const avTxt = isBot?'AI':'U';
+  const t = now();
+  const itag = intent ? `<span class="itag">${intent}</span>` : '';
+  const ctag = conf ? `<span style="font-size:10px;color:var(--text3);font-family:var(--mono)">${Math.round(parseFloat(conf)*100)}%</span>` : '';
+  const meta = isBot ? `<span>${t}</span>${itag}` : `${itag}${ctag}<span>${t}</span>`;
+  w.innerHTML=`<div class="av ${avCls}">${avTxt}</div><div><div class="mb">${text}</div><div class="mm">${meta}</div></div>`;
+  conv.appendChild(w);
+  conv.scrollTop=conv.scrollHeight;
+}
+
+function addSys(text){
+  removeEmpty();
+  const d = document.createElement('div'); d.className='sys-ev';
+  d.innerHTML=`<div class="sys-dot"></div><span>${text}</span>`;
+  conv.appendChild(d); conv.scrollTop=conv.scrollHeight;
+}
+
+function setSentiment(score){
+  const s = parseInt(score);
+  const el = document.getElementById('sentNum');
+  el.textContent = (s>0?'+':'')+s;
+  const pct = ((s+10)/20)*100;
+  const bar = document.getElementById('sentBar');
+  bar.style.width = pct+'%';
+  if(s>3){bar.style.background='var(--green)';el.style.color='var(--green)';}
+  else if(s<-3){bar.style.background='var(--red)';el.style.color='var(--red)';}
+  else{bar.style.background='var(--accent)';el.style.color='var(--accent2)';}
+}
+
+function setFormBusy(busy){
+  callActive = busy;
+  btnCall.disabled = busy;
+  btnHangup.style.display = busy ? 'block' : 'none';
+  btnCall.style.display = busy ? 'none' : 'block';
+  ['cfNumber','cfWebhook','cfMessage','cfPrompt'].forEach(id=>{
+    document.getElementById(id).disabled = busy;
+  });
+}
+
+function showErr(msg){
+  const el = document.getElementById('cfError');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'), 5000);
+}
+
+async function triggerCall(){
+  const number  = document.getElementById('cfNumber').value.trim();
+  const webhook = document.getElementById('cfWebhook').value.trim();
+  const message = document.getElementById('cfMessage').value.trim();
+  const prompt  = document.getElementById('cfPrompt').value.trim();
+  if(!number){ showErr('Phone number is required'); return; }
+  if(!webhook){ showErr('Webhook base URL is required'); return; }
+  btnCall.textContent='INITIATING...'; btnCall.disabled=true;
+  try{
+    const res = await fetch('/api/start_call',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({number,webhook_base:webhook,message,prompt})
+    });
+    const j = await res.json();
+    if(j.ok){
+      setFormBusy(true);
+      addLog(`Call triggered to <span class="hl">${number}</span>`,'info');
+      document.getElementById('cfError').classList.remove('show');
+    } else {
+      showErr(j.error||'Unknown error');
+      btnCall.textContent='INITIATE CALL'; btnCall.disabled=false;
+    }
+  } catch(e){
+    showErr('Network error: '+e.message);
+    btnCall.textContent='INITIATE CALL'; btnCall.disabled=false;
+  }
+}
+
+async function hangupCall(){
+  btnHangup.disabled=true; btnHangup.textContent='HANGING UP...';
+  try{
+    await fetch('/api/hangup',{method:'POST'});
+  } catch(e){ console.error(e); }
+  btnHangup.disabled=false; btnHangup.textContent='HANG UP';
+}
+
+function handleEvent(e){
+  let obj; try{ obj=JSON.parse(e.data); }catch{ return; }
+  const {type,data} = obj;
+
+  if(type==='ping'||type==='init') return;
+
+  if(type==='call_initiated'){
+    setLiveState('ringing');
+    stTxt.textContent='Calling '+(data.number||'...');
+    document.getElementById('iNumber').textContent=data.number||'—';
+    document.getElementById('iStatus').textContent='Ringing';
+    document.getElementById('iSid').textContent=data.sid||'—';
+    addLog(`Call initiated to <span class="hl">${data.number}</span>`,'info');
+    addSys('Call initiated — waiting for answer...');
+  }
+
+  else if(type==='call_answered'){
+    setLiveState('active');
+    stTxt.textContent='Connected — '+(data.number||'');
+    document.getElementById('iStatus').textContent='Connected';
+    startTimer();
+    addLog('Call <span class="hl">answered</span>','success');
+    addSys('Call connected.');
+  }
+
+  else if(type==='user_speech'){
+    document.getElementById('iName').textContent=data.name||'Unknown';
+    const ic = ['positive','negative','exit'].includes(data.intent)?`b-${data.intent}`:'b-intent';
+    document.getElementById('intentBadge').innerHTML=`<span class="badge ${ic}">${data.intent||'neutral'}</span>`;
+    document.getElementById('emotionBadge').innerHTML=`<span class="badge b-emotion">${data.emotion||'neutral'}</span>`;
+    setSentiment(data.sentiment||0);
+    if(data.confidence){
+      const pct=Math.round(parseFloat(data.confidence)*100);
+      document.getElementById('confTxt').textContent=pct+'%';
+      document.getElementById('confFill').style.width=pct+'%';
+    }
+    document.getElementById('sExchanges').textContent=data.exchanges||0;
+    document.getElementById('sSilences').textContent=data.silences||0;
+    addMsg('user',data.text,data.intent,data.confidence);
+    addLog(`User: "<span class="hl">${data.text.substring(0,42)+(data.text.length>42?'...':'')}</span>"`,'info');
+  }
+
+  else if(type==='bot_response'){
+    document.getElementById('sResponses').textContent=data.count||0;
+    addMsg('bot',data.text,null,null);
+    addLog(`Bot responded (${data.count} total)`,'success');
+  }
+
+  else if(type==='silence'){
+    document.getElementById('sSilences').textContent=data.count||0;
+    addLog(`Silence detected (${data.count}x)`,'warn');
+    addSys(`Silence #${data.count} — prompting user...`);
+  }
+
+  else if(type==='name_detected'){
+    document.getElementById('iName').textContent=data.name;
+    addLog(`Name detected: <span class="hl">${data.name}</span>`,'success');
+  }
+
+  else if(type==='call_ended'){
+    setLiveState('ended'); stopTimer();
+    stTxt.textContent='Call ended — '+(data.reason||'');
+    document.getElementById('iStatus').textContent='Ended';
+    setSentiment(data.sentiment||0);
+    addLog(`Call ended: <span class="hl">${data.reason||'?'}</span>`,'error');
+    addSys(`Call ended. Duration: ${data.duration||'?'}s | Sentiment: ${data.sentiment}`);
+    setFormBusy(false);
+    btnCall.textContent='INITIATE CALL';
+  }
+
+  else if(type==='recording_saved'){
+    addLog(`Recording saved: <span class="hl">${data.filename}</span>`,'success');
+  }
+
+  else if(type==='error'){
+    addLog(`Error: <span class="hl">${data.message}</span>`,'error');
+    setFormBusy(false);
+    btnCall.textContent='INITIATE CALL';
+  }
+}
+
+function connectSSE(){
+  const es = new EventSource('/stream');
+  es.onopen=()=>{
+    conn.textContent='connected'; conn.className='conn ok';
+    addLog('Stream <span class="hl">connected</span>','success');
+  };
+  es.onmessage=handleEvent;
+  es.onerror=()=>{
+    conn.textContent='reconnecting…'; conn.className='conn';
+    setTimeout(connectSSE, 3000);
+    es.close();
+  };
+}
+connectSSE();
+</script>
+</body>
+</html>

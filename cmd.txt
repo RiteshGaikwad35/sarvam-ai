@@ -1,0 +1,4 @@
+cloudflared tunnel --url http://localhost:5000
+curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -o cloudflared.deb
+
+sk_u80vafjf_tVbjFAU7MFVx1j7HSVEavyPq
